@@ -18,6 +18,7 @@ library
   exposed-modules:     Image
                      , Intersect
                      , Point
+                     , Scene
                      , Vector
   build-depends:       base >= 4.7 && < 5
                      , tuple

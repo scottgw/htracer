@@ -1,5 +1,7 @@
 module Image where
 
+import Data.Tuple.Select
+
 -- Join a list of strings using a separator.
 join :: String -> [String] -> String
 join sep [x] = x
@@ -13,9 +15,24 @@ newtype RGB = RGB (Int, Int, Int)
 
 instance Show RGB where show rgb = show $ rgb_to_str rgb
 
+instance Num RGB where
+  (+) (RGB a) (RGB b) = RGB (sel1 a + sel1 b,
+                             sel2 a + sel2 b,
+                             sel3 a + sel3 b)
+
 -- Convert an RGB to a String
 rgb_to_str :: RGB -> String
 rgb_to_str (RGB (r,g,b)) = join " " $ map show [r,g,b]
+
+rgb_to_list :: RGB -> [Int]
+rgb_to_list (RGB (r,g,b)) = [r,g,b]
+
+rgb_to_integer_list :: RGB -> [Integer]
+rgb_to_integer_list r = map toInteger (rgb_to_list r)
+
+rgb_from_list :: [Integer] -> RGB
+rgb_from_list l = RGB (l'!!0, l'!!1, l'!!2)
+  where l' = map fromInteger l
 
 -- Test for rgb_to_str
 test_rgb_to_str :: Bool

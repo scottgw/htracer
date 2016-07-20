@@ -5,8 +5,10 @@ import Intersect
 import Point
 import Vector
 
-type Scene = [Surface]
+type Light = (Point, RGB)
+type Scene = ([Surface], [Light])
 
+black = RGB (0,0,0)
 bgcolour = RGB (255, 0, 255)
 
 -- get a ray from a camera location to a pixel
@@ -30,14 +32,32 @@ raytrace scene width height = Image (fromInteger width, fromInteger height, ps)
 
 -- get list of surfaces and Maybe distances to those surfaces which the ray intersects.
 get_ray_intersections :: Scene -> Ray -> [(Surface, [Scalar])]
-get_ray_intersections scene ray = [ (obj, ray_surface_intersect ray obj) | obj <- scene ]
+get_ray_intersections scene ray = [ (obj, ray_surface_intersect ray obj) | obj <- fst scene ]
 
 get_colour_for_ray :: Scene -> Ray -> RGB
 get_colour_for_ray scene ray = srdetectcolour' scene ray (srintersect scene ray)
 
 srdetectcolour' :: Scene -> Ray -> Maybe (Surface, Scalar) -> RGB
-srdetectcolour' scene (Ray ro rd) (Just (s,d)) = surface_colour s
+--srdetectcolour' scene (Ray ro rd) (Just (s,d)) = surface_colour s
+--srdetectcolour' scene r Nothing = bgcolour
+srdetectcolour' scene (Ray ro rd) (Just (s, d)) = lightadded + (surface_colour s)
+  where lightsvisible :: [Light]
+        lightsvisible = lightsvisiblefrom intersectpoint scene
+        lightadded :: RGB
+        lightadded = foldr (+) black (map effectivelight lightsvisible)
+        effectivelight :: Light -> RGB
+        effectivelight (p, c) = rgb_from_list $ map (round . (*10000) . (/ (vectorsum ((delta intersectpoint p) * (delta intersectpoint p)))) . fromInteger) (rgb_to_integer_list c)
+        intersectpoint = translate ro (mult d rd)
 srdetectcolour' scene r Nothing = bgcolour
+
+lightsvisiblefrom :: Point -> Scene -> [Light]
+lightsvisiblefrom x scene@(surfs, lights) = filter isvis lights
+  where isvis :: Light -> Bool
+        isvis light = pastthelight (srintersect scene (Ray x (delta (fst light) x)))
+        pastthelight :: Maybe (Surface, Scalar) -> Bool
+        pastthelight Nothing = True
+        pastthelight (Just (s, d)) | d > 1 = True
+                                   | otherwise = False
 
 -- first surface intersection for ray.
 srintersect :: Scene -> Ray -> Maybe (Surface, Scalar)

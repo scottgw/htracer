@@ -1,4 +1,4 @@
-module Scene where
+module Raytrace where
 
 import Image
 import Intersect

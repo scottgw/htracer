@@ -3,7 +3,7 @@ module Main where
 import Intersect
 import Image
 import Point
-import Scene(raytrace)
+import Raytrace(raytrace)
 import Vector
 
 test_scene = [ Sphere (Point (0, 0, 500)) 100 (RGB (50, 70, 90)),

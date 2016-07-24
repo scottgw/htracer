@@ -1,5 +1,9 @@
 module Raytrace where
 
+import Control.Lens
+import Control.Parallel.Strategies
+import Data.List
+
 import Image
 import Intersect
 import Point
@@ -8,8 +12,8 @@ import Vector
 type Light = (Point, RGB)
 type Scene = ([Surface], [Light])
 
-black = RGB (0,0,0)
-bgcolour = RGB (255, 0, 255)
+black = RGB 0 0 0
+bgcolour = RGB 255 0 255
 
 -- get a ray from a camera location to a pixel
 ray_for_pixel :: Scalar -> Scalar -> Scalar -> Scalar -> Ray
@@ -18,12 +22,13 @@ ray_for_pixel w h x y = r
         direction = normalize (delta p origin)
         x' = (x / w) - 0.5
         y' = (y / h) - 0.5
-        p = Point (x', y', 1.0)
+        p = Point (Vector x'  y' 1.0)
 
 -- send rays over the scene and return an image.
 raytrace :: Scene -> Integer -> Integer -> Image
-raytrace scene width height = Image (fromInteger width, fromInteger height, ps)
-  where ps = [ get_colour_for_ray scene (ray_for_pixel w h x y) |
+raytrace scene width height = Image (fromInteger width, fromInteger height, ps')
+  where ps' = ps `using` parListChunk 128 rdeepseq
+        ps = [ get_colour_for_ray scene (ray_for_pixel w h x y) |
                y <- map fromInteger [0..height - 1], x <- map fromInteger [0..width - 1] ]
         w :: Scalar
         w = fromInteger (width - 1)
@@ -43,10 +48,22 @@ srdetectcolour' :: Scene -> Ray -> Maybe (Surface, Scalar) -> RGB
 srdetectcolour' scene (Ray ro rd) (Just (s, d)) = lightadded + (surface_colour s)
   where lightsvisible :: [Light]
         lightsvisible = lightsvisiblefrom intersectpoint scene
+
         lightadded :: RGB
-        lightadded = foldr (+) black (map effectivelight lightsvisible)
+        lightadded = foldl' (+) black (map effectivelight lightsvisible)
+
+        colourTransform :: Point -> Int -> Int
+        colourTransform p = round
+                            . (* 10000)
+                            . (/ (vectorsum ((delta intersectpoint p) ^ 2)))
+                            . fromIntegral
+
+        tupleTransform :: Point -> (Int, Int, Int) -> (Int, Int, Int)
+        tupleTransform p = over each (colourTransform p)
+
         effectivelight :: Light -> RGB
-        effectivelight (p, c) = rgb_from_list $ map (round . (*10000) . (/ (vectorsum ((delta intersectpoint p) * (delta intersectpoint p)))) . fromInteger) (rgb_to_integer_list c)
+        effectivelight (p, c) = over rgb (tupleTransform p) c
+
         intersectpoint = translate ro (mult d rd)
 srdetectcolour' scene r Nothing = bgcolour
 
@@ -77,3 +94,5 @@ min_intersection ((sa, a):(sb, b):extra) | a < b = min_intersection ((sa, a):ext
                                          | otherwise = min_intersection ((sb, b):extra)
 min_intersection [] = Nothing
 min_intersection [(sa, a)] = Just (sa, a)
+
+

@@ -1,25 +1,21 @@
 module Point where
 
-import Data.Tuple.Select
+import Control.Lens
+
 import Vector
 
-newtype Point = Point (Scalar, Scalar, Scalar)
+newtype Point = Point Vector
+
 
 delta :: Point -> Point -> Vector
-delta (Point p) (Point q) = Vector(sel1 p - sel1 q,
-                                   sel2 p - sel2 q,
-                                   sel3 p - sel3 q)
+delta (Point p) (Point q) = p - q
 
 translate :: Point -> Vector -> Point
-translate (Point p) (Vector v) = Point (sel1 p + sel1 v,
-                                        sel2 p + sel2 v,
-                                        sel3 p + sel3 v)
+translate (Point p) v = Point (p + v)
 
 instance Eq Point where
-  (==) (Point p) (Point q) = all id [sel1 p == sel1 q,
-                                     sel2 p == sel2 q,
-                                     sel3 p == sel3 q]
+  (==) (Point p) (Point q) = p == q
 
 instance Show Point where show (Point p) = show p
 
-origin = Point (0,0,0)
+origin = Point (Vector 0 0 0)

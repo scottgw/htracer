@@ -1,39 +1,46 @@
 module Vector where
 
-import Data.Tuple.Select
+import Control.Lens
 
 type Scalar = Double
 
-newtype Vector = Vector (Scalar, Scalar, Scalar)
+data Vector = Vector {
+  x :: !Scalar,
+  y :: !Scalar,
+  z :: !Scalar
+  }
+
+
+vector :: Iso' Vector (Scalar, Scalar, Scalar)
+vector = iso ( \(Vector x y z) -> (x, y, z))
+  (\ (x, y, z) -> Vector x y z)
 
 instance Num Vector where
-  (+) (Vector xs) (Vector ys) = Vector (sel1 xs + sel1 ys,
-                                        sel2 xs + sel2 ys,
-                                        sel3 xs + sel3 ys)
-  (-) (Vector xs) (Vector ys) = Vector (sel1 xs - sel1 ys,
-                                        sel2 xs - sel2 ys,
-                                        sel3 xs - sel3 ys)
-  (*) (Vector xs) (Vector ys) = Vector (sel1 xs * sel1 ys,
-                                        sel2 xs * sel2 ys,
-                                        sel3 xs * sel3 ys)
-  negate (Vector xs) = Vector (0 - sel1 xs, 0 - sel2 xs, 0 - sel3 xs)
+  (+) (Vector x1 y1 z1) (Vector x2 y2 z2) = Vector (x1 + x2)
+                                        (y1 + y2)
+                                        (z1 + z2)
+  (-) (Vector x1 y1 z1) (Vector x2 y2 z2) = Vector (x1 - x2)
+                                        (y1 - y2)
+                                        (z1 - z2)
+  (*) (Vector x1 y1 z1) (Vector x2 y2 z2) = Vector (x1 * x2)
+                                        (y1 * y2)
+                                        (z1 * z2)
+  negate (Vector x y z) = Vector (0 - x) (0 - y) (0 - z)
   fromInteger x = error "failed to convert integer to vector"
 
 instance Eq Vector where
-  (==) (Vector xs) (Vector ys) = all id [sel1 xs == sel1 ys,
-                                         sel2 xs == sel2 ys,
-                                         sel3 xs == sel3 ys]
+  (==) (Vector x1 y1 z1) (Vector x2 y2 z2) = x1 == x2 && y1 == y2 && z1 == z2
 
-instance Show Vector where show (Vector xs) = show xs
+instance Show Vector where show (Vector x y z) = show (x, y, z)
 
 mult :: Scalar -> Vector -> Vector
-mult s (Vector xs) = Vector (sel1 xs * s, sel2 xs * s, sel3 xs * s)
+mult s (Vector x y z) = Vector (x * s) (y * s) (z * s)
 
 vectorsum :: Vector -> Scalar
-vectorsum (Vector xs) = sel1 xs + sel2 xs + sel3 xs
+vectorsum (Vector x y z) = x + y + z
 
 normalize :: Vector -> Vector
-normalize v@(Vector vs) = Vector (sel1 vs / mag, sel2 vs / mag, sel3 vs / mag)
+normalize v@(Vector x y z) = Vector (x / mag) (y / mag) (z / mag)
   where
     mag = sqrt $ dot v v
 

@@ -20,7 +20,10 @@ library
                      , Point
                      , Raytrace
                      , Vector
-  build-depends:       base >= 4.7 && < 5
+  build-depends:       base
+                     , deepseq
+                     , lens
+                     , parallel
                      , tuple
   default-language:    Haskell2010
 

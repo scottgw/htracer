@@ -4,9 +4,9 @@ import Image
 import Point
 import Vector
 
-data Surface = Sphere Point Scalar RGB deriving Show
+data Surface = Sphere !Point !Scalar !RGB deriving Show
 
-data Ray = Ray Point Vector deriving Show
+data Ray = Ray !Point !Vector deriving Show
 
 dscr :: Scalar -> Scalar -> Scalar -> Scalar
 dscr a b c = (b * b) - (4.0 * a * c)
@@ -28,5 +28,5 @@ surface_colour :: Surface -> RGB
 surface_colour (Sphere p r c) = c
 
 test_intersect = abs(a - 57.7350269189626) < 0.00001
-  where (a:as) = (ray_surface_intersect (Ray origin (Vector (1,1,1)))
-                                        (Sphere origin 100 (RGB (50,50,50))))
+  where (a:as) = (ray_surface_intersect (Ray origin (Vector 1 1 1))
+                                        (Sphere origin 100 (RGB 50 50 50)))

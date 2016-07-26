@@ -1,6 +1,4 @@
-module Point where
-
-import Control.Lens
+module Point (Point(..), delta, translate, origin) where
 
 import Vector
 

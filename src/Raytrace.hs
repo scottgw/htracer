@@ -1,15 +1,15 @@
-module Raytrace where
+{-# LANGUAGE BangPatterns #-}
+module Raytrace (Scene, Light(..), raytrace) where
 
-import Control.Lens
-import Control.Parallel.Strategies
 import Data.List
+import Data.Function
 
 import Image
 import Intersect
 import Point
 import Vector
 
-type Light = (Point, RGB)
+data Light = Light !Point !RGB
 type Scene = ([Surface], [Light])
 
 black = RGB 0 0 0
@@ -17,27 +17,30 @@ bgcolour = RGB 255 0 255
 
 -- get a ray from a camera location to a pixel
 ray_for_pixel :: Scalar -> Scalar -> Scalar -> Scalar -> Ray
-ray_for_pixel w h x y = r
-  where r = Ray origin direction
-        direction = normalize (delta p origin)
+ray_for_pixel !w !h !x !y = r
+  where !r = Ray origin direction
+        !direction = normalize (delta p origin)
         x' = (x / w) - 0.5
         y' = (y / h) - 0.5
         p = Point (Vector x'  y' 1.0)
 
+data Pair = Pair !Scalar !Scalar
+
 -- send rays over the scene and return an image.
-raytrace :: Scene -> Integer -> Integer -> Image
-raytrace scene width height = Image (fromInteger width, fromInteger height, ps')
-  where ps' = ps `using` parListChunk 128 rdeepseq
-        ps = [ get_colour_for_ray scene (ray_for_pixel w h x y) |
-               y <- map fromInteger [0..height - 1], x <- map fromInteger [0..width - 1] ]
-        w :: Scalar
-        w = fromInteger (width - 1)
-        h :: Scalar
-        h = fromInteger (height - 1)
+raytrace :: Scene -> Int -> Int -> Image
+raytrace scene width height = Image (width, height, ps)
+  where ps = [get_colour_for_ray scene (ray_for_pixel sw sh x y) | y <- [0..sh], x <- [0..sw]]
+        sw :: Scalar
+        sw = fromIntegral (width - 1)
+        sh :: Scalar
+        sh = fromIntegral (height - 1)
+
+data SurfInt = SurfInt Surface !Intersect
 
 -- get list of surfaces and Maybe distances to those surfaces which the ray intersects.
-get_ray_intersections :: Scene -> Ray -> [(Surface, [Scalar])]
-get_ray_intersections scene ray = [ (obj, ray_surface_intersect ray obj) | obj <- fst scene ]
+get_ray_intersections :: Scene -> Ray -> [SurfInt]
+get_ray_intersections scene !ray =
+  map (\obj -> SurfInt obj (ray_surface_intersect ray obj)) (fst scene)
 
 get_colour_for_ray :: Scene -> Ray -> RGB
 get_colour_for_ray scene ray = srdetectcolour' scene ray (srintersect scene ray)
@@ -53,16 +56,14 @@ srdetectcolour' scene (Ray ro rd) (Just (s, d)) = lightadded + (surface_colour s
         lightadded = foldl' (+) black (map effectivelight lightsvisible)
 
         colourTransform :: Point -> Int -> Int
-        colourTransform p = round
+        colourTransform !p = round
                             . (* 10000)
-                            . (/ (vectorsum ((delta intersectpoint p) ^ 2)))
+                            . (/ (dot2 (delta intersectpoint p)))
                             . fromIntegral
 
-        tupleTransform :: Point -> (Int, Int, Int) -> (Int, Int, Int)
-        tupleTransform p = over each (colourTransform p)
-
         effectivelight :: Light -> RGB
-        effectivelight (p, c) = over rgb (tupleTransform p) c
+        effectivelight (Light !p (RGB r g b)) =
+          RGB (colourTransform p r) (colourTransform p g) (colourTransform p b)
 
         intersectpoint = translate ro (mult d rd)
 srdetectcolour' scene r Nothing = bgcolour
@@ -70,29 +71,35 @@ srdetectcolour' scene r Nothing = bgcolour
 lightsvisiblefrom :: Point -> Scene -> [Light]
 lightsvisiblefrom x scene@(surfs, lights) = filter isvis lights
   where isvis :: Light -> Bool
-        isvis light = pastthelight (srintersect scene (Ray x (delta (fst light) x)))
+        isvis (Light p _) = pastthelight (srintersect scene (Ray x (delta p x)))
+
         pastthelight :: Maybe (Surface, Scalar) -> Bool
-        pastthelight Nothing = True
-        pastthelight (Just (s, d)) | d > 1 = True
-                                   | otherwise = False
+        pastthelight (Just (s, d)) | d <= 1 = False
+        pastthelight _ = True
 
 -- first surface intersection for ray.
 srintersect :: Scene -> Ray -> Maybe (Surface, Scalar)
-srintersect scene ray = min_intersection $ flatten_intersections $ get_ray_intersections scene ray
+srintersect scene ray = find_min_intersection $ get_ray_intersections scene ray
 
-flatten_intersections :: [(Surface, [Scalar])] -> [(Surface, Scalar)]
-flatten_intersections ((surf, []):extra) = flatten_intersections extra
-flatten_intersections ((surf, xs):extra) = ((flatten_intersections' surf xs) ++ (flatten_intersections extra))
-flatten_intersections [] = []
-
-flatten_intersections' :: Surface -> [Scalar] -> [(Surface, Scalar)]
-flatten_intersections' surf (x:xs) = (surf, x):(flatten_intersections' surf xs)
-flatten_intersections' surf[] = []
-
-min_intersection :: [(Surface, Scalar)] -> Maybe (Surface, Scalar)
-min_intersection ((sa, a):(sb, b):extra) | a < b = min_intersection ((sa, a):extra)
-                                         | otherwise = min_intersection ((sb, b):extra)
-min_intersection [] = Nothing
-min_intersection [(sa, a)] = Just (sa, a)
+find_min_intersection :: [SurfInt] -> Maybe (Surface, Scalar)
+find_min_intersection xs = foldl' go Nothing xs
+  where
+    go :: Maybe (Surface, Scalar) -> SurfInt -> Maybe (Surface, Scalar)
+    go acc@(Just (accS, !accI)) (SurfInt s !inter) =
+      case inter of
+        Intr0 -> acc
+        Intr1 a -> if a < accI
+                   then Just (s, a)
+                   else acc
+        Intr2 a b ->
+          let c = min a b
+          in if c < accI
+             then Just (s, c)
+             else acc
+    go Nothing (SurfInt !s !inter) =
+      case inter of
+        Intr0 -> Nothing
+        Intr1 a ->  Just (s, a)
+        Intr2 a b -> Just (s, min a b)
 
 

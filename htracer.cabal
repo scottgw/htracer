@@ -21,16 +21,13 @@ library
                      , Raytrace
                      , Vector
   build-depends:       base
-                     , deepseq
-                     , lens
-                     , parallel
-                     , tuple
+                     , bytestring >= 0.10.6.0
   default-language:    Haskell2010
 
 executable htracer-exe
   hs-source-dirs:      app
   main-is:             Main.hs
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -rtsopts -funbox-strict-fields
   build-depends:       base
                      , htracer
   default-language:    Haskell2010
@@ -41,7 +38,7 @@ test-suite htracer-test
   main-is:             Spec.hs
   build-depends:       base
                      , htracer
-  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  ghc-options:         -rtsopts
   default-language:    Haskell2010
 
 source-repository head

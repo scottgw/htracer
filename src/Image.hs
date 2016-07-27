@@ -42,8 +42,8 @@ newtype Image = Image (Int, Int, V.Vector (Int, Int, Int))
 create_ppm :: Image -> BLB.Builder
 create_ppm (Image (w, h, ps)) =
   "P3\n" <>
-  "255\n" <>
   BLB.intDec w <> " " <> BLB.intDec h <> "\n" <>
+  "255\n" <>
   V.foldr (\ rgb acc -> acc <> rgb_tuple_to_str rgb <> "\n") "" ps
 
 write_ppm :: FilePath -> Image -> IO ()
@@ -62,6 +62,6 @@ test_create_ppm = BLB.toLazyByteString (
                                    RGB 55 56 57, RGB 66 67 68]))) ==
                   "P3\n2 3\n255\n11 12 13\n22 23 24\n33 34 35\n44 45 46\n55 56 57\n66 67 68\n"
 
--- test_write_ppm = write_ppm "test.ppm" (Image (16, 16, (map mkrgb [0..255])))
---   where
---     mkrgb x = RGB x x x
+test_write_ppm = write_ppm "test.ppm" (Image (16, 16, (V.map mkrgb (V.fromList [0..255]))))
+  where
+    mkrgb x = (x, x, x)

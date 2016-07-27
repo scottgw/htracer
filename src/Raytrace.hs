@@ -1,8 +1,12 @@
 {-# LANGUAGE BangPatterns #-}
 module Raytrace (Scene, Light(..), raytrace) where
 
+import qualified Data.Array.Repa as Repa
+import Data.Array.Repa ((:.)(..))
 import Data.List
 import Data.Function
+import Data.Functor.Identity
+import qualified Data.Vector.Unboxed as V
 
 import Image
 import Intersect
@@ -16,6 +20,7 @@ black = RGB 0 0 0
 bgcolour = RGB 255 0 255
 
 -- get a ray from a camera location to a pixel
+{-# INLINE ray_for_pixel #-}
 ray_for_pixel :: Scalar -> Scalar -> Scalar -> Scalar -> Ray
 ray_for_pixel !w !h !x !y = r
   where !r = Ray origin direction
@@ -26,8 +31,21 @@ ray_for_pixel !w !h !x !y = r
 
 -- send rays over the scene and return an image.
 raytrace :: Scene -> Int -> Int -> Image
-raytrace scene width height = Image (width, height, ps)
-  where ps = [get_colour_for_ray scene (ray_for_pixel sw sh x y) | y <- [0..sh], x <- [0..sw]]
+raytrace scene width height = Image (width, height, Repa.toUnboxed rgbArray)
+  where rgbArray :: Repa.Array Repa.U Repa.DIM2 (Int, Int, Int)
+        rgbArray = runIdentity (Repa.computeP delayedRgbArray)
+
+        rgbToTuple (RGB r g b) = (r, g, b)
+
+        {-# INLINE go #-}
+        go :: Repa.DIM2 -> RGB
+        go (Repa.Z :. x :. y) =
+          get_colour_for_ray scene (ray_for_pixel sw sh (fromIntegral x) (fromIntegral  y))
+
+        delayedRgbArray :: Repa.Array Repa.D Repa.DIM2 (Int, Int, Int)
+        delayedRgbArray =
+          Repa.fromFunction (Repa.ix2 width height) (rgbToTuple . go)
+
         sw :: Scalar
         sw = fromIntegral (width - 1)
         sh :: Scalar
@@ -40,6 +58,7 @@ get_ray_intersections :: Scene -> Ray -> [SurfInt]
 get_ray_intersections scene !ray =
   map (\obj -> SurfInt obj (ray_surface_intersect ray obj)) (fst scene)
 
+{-# INLINE get_colour_for_ray #-}
 get_colour_for_ray :: Scene -> Ray -> RGB
 get_colour_for_ray scene ray = srdetectcolour' scene ray (srintersect scene ray)
 

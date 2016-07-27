@@ -24,8 +24,6 @@ ray_for_pixel !w !h !x !y = r
         y' = (y / h) - 0.5
         p = Point (Vector x'  y' 1.0)
 
-data Pair = Pair !Scalar !Scalar
-
 -- send rays over the scene and return an image.
 raytrace :: Scene -> Int -> Int -> Image
 raytrace scene width height = Image (width, height, ps)

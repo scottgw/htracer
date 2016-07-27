@@ -49,12 +49,7 @@ create_ppm (Image (w, h, ps)) =
 write_ppm :: FilePath -> Image -> IO ()
 write_ppm file img@(Image (w, h, ps)) = withFile  file WriteMode $ \ hdl -> do
   hSetBuffering hdl (BlockBuffering Nothing)
-  -- BLB.hPutBuilder hdl (create_ppm img)
-  B.hPutStrLn hdl "P3"
-  BL.hPutStrLn hdl (BL.unwords [intByteString w, intByteString h])
-  BL.hPutStrLn hdl "255"
-  let bld = V.foldr (\ rgb acc -> acc <> rgb_tuple_to_str rgb <> "\n") "" ps
-  BLB.hPutBuilder hdl bld
+  BLB.hPutBuilder hdl (create_ppm img)
 
 rgbsToTuples = V.fromList . map (\ (RGB r g b) -> (r, g, b))
 
